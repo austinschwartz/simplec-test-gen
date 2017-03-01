@@ -11,8 +11,13 @@ LONG_MAX_NEG = -(1e6)
 DOUBLE_MAX_POS = (1e6)
 DOUBLE_MAX_NEG = -(1e6)
 
-def unary_op():
-    return ["+", "-", "&", "*"]
+RESERVED = set(["for", "if", "if ", "if \"", "while", "else", "do"])
+
+def unary_op(can_be_amp=True):
+    if can_be_amp:
+        return ["+", "-", "&", "*"]
+    else:
+        return ["+", "-", "*"]
 
 def binary_op():
     return ["+", "-", "*", "/", ">", "<", ">=", "<=", "||", "&&"]
@@ -30,19 +35,23 @@ class Generator:
     def print_while(self):
         print("while(" + self.primary_expr() + ")", end = '')
 
+    def print_if(self):
+        print("if(" + self.primary_expr() + ")", end = '')
 
     def print_pre_compound(self):
         rand = random.uniform(0, 1)
         if rand < 0.4:
             self.print_for()
-        elif rand < .75:
+        elif rand < .65:
             self.print_while()
+        elif rand < .85:
+            self.print_if()
 
-    def unary_expr(self):
+    def unary_expr(self, can_be_amp=True):
         rand = random.uniform(0, 1)
         if rand < 0.5:
-            unop = random.choice(unary_op())
-            return unop + self.unary_expr()
+            unop = random.choice(unary_op(can_be_amp))
+            return unop + self.unary_expr(False if unop == '&' else True)
         else:
             return self.primary_expr()
 
@@ -81,8 +90,21 @@ class Generator:
         return "(" + self.expression() + ")"
 
 
+    def random_word_helper(self, length):
+        return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(random.randint(1, length)))
+
+    def random_word(self, length):
+        varName = self.random_word_helper(length)
+        if varName in RESERVED:
+            while varName in RESERVED:
+                varName = self.random_word_helper(length)
+        return varName
+
+    def random_arg_name(self):
+        return self.random_word(ARGUMENT_MAX_LENGTH)
+
     def random_name(self):
-        return ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(random.randint(1, VARIABLE_MAX_LENGTH)))
+        return self.random_word(VARIABLE_MAX_LENGTH)
 
     def random_assignment(self):
         return self.random_name() + "=" + self.primary_expr()
@@ -99,12 +121,12 @@ class Generator:
         self.k = self.k - 1
 
     def random_args(self):
-        lst = ''.join(random.choice(string.ascii_uppercase + string.ascii_lowercase) for _ in range(random.randint(0, ARGUMENT_MAX_LENGTH)))
+        name = self.random_arg_name()
         ret = []
         prevIsComma = False
-        for i, char in enumerate(lst):
+        for i, char in enumerate(name):
             ret.append(char)
-            if i == len(lst) - 1:
+            if i == len(name) - 1:
                 break
             if not prevIsComma:
                 if random.uniform(0, 1) < 0.3:
