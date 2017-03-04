@@ -11,7 +11,7 @@ LONG_MAX_NEG = -(1e6)
 DOUBLE_MAX_POS = (1e6)
 DOUBLE_MAX_NEG = -(1e6)
 
-RESERVED = set(["for", "if", "if ", "if \"", "while", "else", "do"])
+RESERVED = {"for", "if", "if ", "if \"", "while", "else", "do"}
 
 def unary_op(can_be_amp=True):
     if can_be_amp:
@@ -21,6 +21,12 @@ def unary_op(can_be_amp=True):
 
 def binary_op():
     return ["+", "-", "*", "/", ">", "<", ">=", "<=", "||", "&&"]
+
+def var_type():
+    return ["char*", "char**", "long*", "long", "double", "double*", "void"]
+
+def jump_type():
+    return ["continue", "break", "return"]
 
 class Generator:
     def __init__(self):
@@ -67,7 +73,7 @@ class Generator:
         rand = random.uniform(0, 1)
         # STRING_CONST
         if rand < 0.1:
-            return "\"" + self.random_name() + "\""
+            return "\"" + self.random_var_name() + "\""
         # CHAR_CONST
         elif rand < 0.2:
             return "'" + random.choice(string.ascii_lowercase) + "'"
@@ -76,10 +82,10 @@ class Generator:
             return self.call_expr()
         # ID
         elif rand < 0.4:
-            return self.random_name()
+            return self.random_var_name()
         # ID LBRACE expression RBRACE
         elif rand < 0.5:
-            return self.random_name() + "[" + self.primary_expr() + "]"
+            return self.random_var_name() + "[" + self.primary_expr() + "]"
         # INTEGER_CONST
         elif rand < 0.6:
             return str(random.randint(LONG_MAX_NEG, LONG_MAX_POS))
@@ -103,11 +109,20 @@ class Generator:
     def random_arg_name(self):
         return self.random_word(ARGUMENT_MAX_LENGTH)
 
-    def random_name(self):
+    def random_var_name(self):
         return self.random_word(VARIABLE_MAX_LENGTH)
 
+    def random_var_type(self):
+        return random.choice(var_type())
+
+    def random_jump(self):
+        jump = random.choice(jump_type())
+        if jump == "return":
+            return jump + " " + self.primary_expr() + ";"
+        return jump + ";"
+
     def random_assignment(self):
-        return self.random_name() + "=" + self.primary_expr()
+        return self.random_var_name() + "=" + self.primary_expr()
 
     def open(self):
         self.print_pre_compound()
@@ -140,12 +155,21 @@ class Generator:
 
 
     def call_expr(self):
-        return self.random_name() + "(" + self.random_args() + ")"
+        return self.random_var_name() + "(" + self.random_args() + ")"
 
-    def print_call_stmt(self):
+    def print_stmt(self):
         rand = random.uniform(0, 1)
-        if rand < 0.3:
+        # assignment SEMICOLON
+        if rand < 0.1:
+            print(self.random_assignment() + ";", end='')
+        # call SEMICOLON
+        elif rand < 0.5:
             print(self.call_expr() + ";", end = '')
+        # local_var
+        elif rand < 0.7:
+            print(self.random_var_type() + " " + self.random_var_name() + ";", end='')
+        else:
+            print(self.random_jump(), end='')
 
     def prob_close(self):
         return ((self.r * (self.r + self.k + 2))/(2 * self.k * (self.r + 1)))
@@ -158,7 +182,8 @@ class Generator:
             if self.r == 0:
                 self.open()
             elif random.uniform(0, 1) < 0.7:
-                self.print_call_stmt()
+                for j in range(random.randint(0, 5)):
+                    self.print_stmt()
             elif random.uniform(0, 1) < self.prob_close():
                 self.close()
             else:
